@@ -1,0 +1,2 @@
+#!/bin/bash
+~/zookeeper-3.3.6/bin/zkServer.sh $1

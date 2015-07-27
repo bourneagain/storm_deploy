@@ -1,0 +1,2 @@
+vimdiff `fn $1` `fna $1 $2`
+cd - > /dev/null

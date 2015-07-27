@@ -1,0 +1,77 @@
+clear;
+if [[ "$1" != "-s" ]] 
+then
+	source ~/.bash_profile
+	trap ctrl_c INT
+
+	function ctrl_c() {
+		echo "** Trapped CTRL-C"
+		exit
+	}
+
+	debug=0
+	ps -aef| grep "backtype.storm.daemon.supervisor"  | grep -v grep |awk '{print $2}' | xargs kill -9
+	ps -aef| grep "backtype.storm.daemon.nimbus"  | grep -v grep|awk '{print $2}' | xargs kill -9
+	ps -aef| grep "backtype.storm.daemon.ui.core"  | grep -v grep |awk '{print $2}' | xargs kill -9
+	ps -aef| grep "backtype.storm.daemon.worker"  | grep -v grep |awk '{print $2}' | xargs kill -9
+	ps -aef| grep "backtype.storm.ui.core"  | grep -v grep |awk '{print $2}' | xargs kill -9
+	if [[ "$#" -gt 0 ]] && [[ "$1" != "s" ]]
+	then
+	echo "ONLY KILLING PROCESSES DONE"
+	exit
+	fi
+
+	mvn clean install -DskipTests=true
+	echo "BUILD DONE"
+	if [[ "$debug" -eq 1 ]] 
+	then
+	read a
+	fi
+fi
+
+
+
+cd storm-dist/binary/
+echo "BUILD DONE to create ZIP inside BINARY folder"
+#mvn clean install -DskipTests=true
+
+mvn package
+
+cp ./target/apache-storm*.zip /tmp
+cd /tmp
+rm -rf `ls -d  apache-storm* | egrep -v "\.zip"`
+if [[ "$debug" -eq 1 ]] 
+then
+read a
+fi
+echo "UNZIP"
+unzip `ls -ltr *.zip | tail -1 | awk '{print $NF}'` 
+DIRNAME=`ls -ldtr /tmp/apache-storm-0.*  |  grep -v zip | tail -1 | awk '{print $NF}'`
+cd ${DIRNAME} 
+echo "START NIMBUS SUPERVISOR AND UI"
+sleep 1
+if [[ "$debug" -eq 1 ]] 
+then
+read a
+fi
+
+
+echo "STARTING NIMBUS...."
+sn.sh &
+echo "STARTING UI...."
+sui.sh &
+echo "STARTING SUPERVISOR...."
+ss.sh &
+if [[ "$debug" -eq 1 ]] 
+then
+read a
+fi
+sleep 10
+echo "STARTING TO RUN STORM"
+JAR=`find . -name *.jar | grep example`
+JJAR=`basename ${JAR}`
+echo $JJAR
+<<COMMENT1
+cd ${DIRNAME}; cd examples/storm-starter/; ../../bin/storm jar ${JJAR} storm.starter.BusyCpuTopology topoTesting
+echo "PWD IS :" `pwd`
+COMMENT1
